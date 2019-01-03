@@ -144,6 +144,7 @@ public class StorageTestSuite {
 
     CompletableFuture<String> undeploymentComplete = new CompletableFuture<>();
 
+    PostgresClient.stopEmbeddedPostgres();
     vertx.close(res -> {
       if (res.succeeded()) {
         vertx = null;
@@ -175,6 +176,7 @@ public class StorageTestSuite {
         log.warn(String.format("Deleting all records at '%s' failed",
           rootUrl));
       }
+      client.close();
     } catch (Exception e) {
       log.error("Unable to delete " + rootUrl.toString() + ": " + e.getMessage(), e);
       assert false;
@@ -258,7 +260,7 @@ public class StorageTestSuite {
         response.getStatusCode(), response.getBody());
 
       assertThat(failureMessage, response.getStatusCode(), is(201));
-
+      client.close();
     } catch (Exception e) {
       log.error("Tenant preparation failed: " + e.getMessage(), e);
       assert false;
@@ -282,7 +284,7 @@ public class StorageTestSuite {
         response.getStatusCode(), response.getBody());
 
       assertThat(failureMessage, response.getStatusCode(), is(204));
-
+      client.close();
     } catch (Exception e) {
       log.error("Tenant clean up failed: " + e.getMessage(), e);
       assert false;

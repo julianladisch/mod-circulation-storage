@@ -176,4 +176,8 @@ public class HttpClient {
 
     request.end();
   }
+
+  public void close() {
+    client.close();
+  }
 }
