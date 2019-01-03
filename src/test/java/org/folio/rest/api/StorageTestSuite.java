@@ -161,6 +161,7 @@ public class StorageTestSuite {
   }
 
   public static void deleteAll(URL rootUrl) {
+    log.info("deleteAll " + rootUrl.toString());
     HttpClient client = new HttpClient(getVertx());
 
     CompletableFuture<Response> deleteAllFinished = new CompletableFuture<>();
