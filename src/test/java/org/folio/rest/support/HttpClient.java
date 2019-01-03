@@ -54,6 +54,9 @@ public class HttpClient {
     if(userId != null) {
       request.headers().add(USERID_HEADER, userId);
     }
+    request.exceptionHandler(x -> {
+      log.error("HttpClient.post" + url + " exception " + x.getLocalizedMessage());
+    });
 
     if(body != null) {
       String encodedBody = Json.encodePrettily(body);
@@ -113,6 +116,9 @@ public class HttpClient {
 
     log.info(String.format("PUT %s, Request: %s",
       url.toString(), encodedBody));
+    request.exceptionHandler(x -> {
+      log.error("HttpClient.put" + url + " exception " + x.getLocalizedMessage());
+    });
 
     request.end(encodedBody);
   }
@@ -148,6 +154,9 @@ public class HttpClient {
     }
 
     request.headers().add(USERID_HEADER, defaultUserId);
+    request.exceptionHandler(x -> {
+      log.error("HttpClient.get " + url + " exception " + x.getLocalizedMessage());
+    });
 
     request.end();
   }
@@ -173,7 +182,9 @@ public class HttpClient {
     }
 
     request.headers().add(USERID_HEADER, defaultUserId);
-
+    request.exceptionHandler(x -> {
+      log.error("HttpClient.delete " + url + " exception " + x.getLocalizedMessage());
+    });
     request.end();
   }
 
