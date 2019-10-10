@@ -30,6 +30,8 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLConnection;
 import io.vertx.ext.sql.UpdateResult;
@@ -38,6 +40,8 @@ import org.folio.rest.jaxrs.model.Request;
 import org.folio.rest.persist.PostgresClient;
 
 public class ExpirationTool {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(ExpirationTool.class);
 
   private ExpirationTool() {
     //do nothing
@@ -69,6 +73,8 @@ public class ExpirationTool {
       .compose(requests -> reorderRequests(conn, vertx, tenant, requests))
       .setHandler(v -> {
         if (v.failed()) {
+          v.cause().printStackTrace();
+          LOGGER.error("Request Expiration Failed: ", v.cause());
           pgClient.rollbackTx(conn, done -> future.fail(v.cause()));
         } else {
           pgClient.endTx(conn, done -> future.complete());
