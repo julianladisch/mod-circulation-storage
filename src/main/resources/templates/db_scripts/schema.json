@@ -200,6 +200,26 @@
       "tableName": "patron_action_session",
       "withMetadata": true,
       "withAuditing": false
+    },
+    {
+      "tableName": "item",
+      "withMetadata": false,
+      "withAuditing": false,
+      "index": [
+        {
+          "fieldName": "id",
+          "tOps": "ADD",
+          "caseSensitive": false,
+          "removeAccents": false
+        },
+        {
+          "fieldName": "staffMemberId",
+          "tOps": "ADD",
+          "caseSensitive": false,
+          "removeAccents": false
+        }
+
+      ]
     }
   ]
 }

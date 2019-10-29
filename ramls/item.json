@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "An item record",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique ID of the item record"
+    },
+    "lastCheckIn": {
+      "type": "object",
+      "readonly": true,
+      "additionalProperties": false,
+      "description": "Information about when an item was last scanned on the Inventory app.",
+      "properties": {
+        "dateTime": {
+          "type": "string",
+          "description": "Date and time of the last check in of the item.",
+          "format": "date-time"
+        },
+        "servicePointId": {
+          "type": "string",
+          "description": "Service point ID being used by a staff member when item was scanned in Check in app.",
+          "pattern": "[A-F0-9]{8}-[A-F0-9]{4}-4[A-F0-9]{3}-[89AB][A-F0-9]{3}-[A-F0-9]{12}"
+        },
+        "staffMemberId": {
+          "type": "string",
+          "description": "ID a staff member who scanned the item",
+          "pattern": "[A-F0-9]{8}-[A-F0-9]{4}-4[A-F0-9]{3}-[89AB][A-F0-9]{3}-[A-F0-9]{12}"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
