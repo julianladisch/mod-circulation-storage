@@ -2,6 +2,7 @@ package org.folio.rest.impl;
 
 import static io.vertx.core.Future.succeededFuture;
 import static org.folio.rest.impl.Headers.TENANT_HEADER;
+import static org.folio.support.ModuleConstants.DECLARED_LOST_ITEM_STATUS;
 import static org.folio.support.ModuleConstants.LOAN_CLASS;
 import static org.folio.support.ModuleConstants.LOAN_HISTORY_TABLE;
 import static org.folio.support.ModuleConstants.LOAN_TABLE;
@@ -221,6 +222,14 @@ public class LoansAPI implements LoanStorage {
               validationResult.getRight())));
 
       return;
+    }
+
+    if(loan.getItemStatus().equals(DECLARED_LOST_ITEM_STATUS) &&
+      loan.getAction().equals("dueDateChanged")){
+      asyncResultHandler.handle(
+        succeededFuture(
+          LoanStorage.PutLoanStorageLoansByLoanIdResponse
+            .respond400WithTextPlain("Item is Declared lost")));
     }
 
     if (isOpenAndHasNoUserId(loan)) {

@@ -9,6 +9,7 @@ public class ModuleConstants {
   public static final Class<Loan> LOAN_CLASS = Loan.class;
   public static final String LOAN_TABLE = "loan";
   public static final String OPEN_LOAN_STATUS = "Open";
+  public static final String DECLARED_LOST_ITEM_STATUS = "Declared lost";
 
   private ModuleConstants(){
   }
