@@ -1,6 +1,9 @@
 package org.folio.rest.api;
 
 import static org.folio.rest.api.RequestsApiTest.requestStorageUrl;
+import static org.folio.rest.api.StorageTestSuite.TENANT_ID;
+import static org.folio.rest.api.StorageTestSuite.storageUrl;
+import static org.folio.rest.support.ResponseHandler.empty;
 import static org.folio.rest.support.builders.RequestRequestBuilder.CLOSED_PICKUP_EXPIRED;
 import static org.folio.rest.support.builders.RequestRequestBuilder.CLOSED_UNFILLED;
 import static org.folio.rest.support.builders.RequestRequestBuilder.OPEN_AWAITING_DELIVERY;
@@ -16,9 +19,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
 import org.folio.rest.support.ApiTests;
+import org.folio.rest.support.Response;
 import org.folio.rest.support.builders.RequestRequestBuilder;
-import org.folio.support.ExpirationTool;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.After;
@@ -734,12 +738,17 @@ public class RequestExpirationApiTest extends ApiTests {
     assertThat(response.getInteger("position"), is(1));
   }
 
-  private void expireRequests() throws InterruptedException, ExecutionException, TimeoutException {
-    CompletableFuture<Void> expirationCompleted = new CompletableFuture<>();
+  private void expireRequests() throws InterruptedException, ExecutionException, TimeoutException, MalformedURLException {
+    final var createCompleted = new CompletableFuture<Response>();
+    // TODO: move to the InterfaceUrls
+    final var requestExpirationUrl = storageUrl("/scheduled-request-expiration");
 
-    ExpirationTool.doRequestExpiration(StorageTestSuite.getVertx())
-      .onComplete(res -> expirationCompleted.complete(null));
+    client.post(requestExpirationUrl, TENANT_ID, empty(createCompleted));
 
-    expirationCompleted.get(5, TimeUnit.SECONDS);
+    final var postResponse = createCompleted.get(5, TimeUnit.SECONDS);
+
+    assertThat(postResponse.getStatusCode(), is(204));
   }
+
+  // todo: add test cases to verify failures
 }
