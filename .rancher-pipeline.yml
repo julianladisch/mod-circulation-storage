@@ -20,8 +20,8 @@ stages:
   - name: Deploy
     steps:
       - applyAppConfig:
-          catalogTemplate: p-gh7sb:folijet-helmcharts-mod-circulation-storage
-          version: 0.1.34
+          catalogTemplate: p-gh7sb:vega-helmcharts-mod-circulation-storage
+          version: 0.1.32
           answers:
             image.repository: docker.dev.folio.org/mod-circulation-storage
             image.tag: CIRCSTORE-273-rancher
