@@ -9,7 +9,7 @@ stages:
       - publishImageConfig:
           dockerfilePath: ./Dockerfile
           buildContext: .
-          tag: docker.dev.folio.org/mod-circulation-storage:circstore-273
+          tag: docker.dev.folio.org/mod-circulation-storage:CIRCSTORE-273-rancher
           pushRemote: true
           registry: docker.dev.folio.org
   - name: Deploy
@@ -19,7 +19,7 @@ stages:
           version: 0.1.32
           answers:
             image.repository: docker.dev.folio.org/mod-circulation-storage
-            image.tag: circstore-273
+            image.tag: CIRCSTORE-273-rancher
           targetNamespace: vega
           name: mod-circulation-storage
 timeout: 60
