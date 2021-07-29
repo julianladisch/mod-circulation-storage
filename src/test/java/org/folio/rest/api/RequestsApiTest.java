@@ -1,8 +1,10 @@
 package org.folio.rest.api;
 
+import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_CREATED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.folio.rest.api.StorageTestSuite.TENANT_ID;
 import static org.folio.rest.support.builders.RequestRequestBuilder.CLOSED_CANCELLED;
 import static org.folio.rest.support.builders.RequestRequestBuilder.CLOSED_FILLED;
@@ -18,7 +20,6 @@ import static org.folio.rest.support.matchers.TextDateTimeMatcher.equivalentTo;
 import static org.folio.rest.support.matchers.TextDateTimeMatcher.withinSecondsAfter;
 import static org.folio.rest.support.matchers.ValidationErrorMatchers.hasMessage;
 import static org.folio.rest.support.matchers.ValidationResponseMatchers.isValidationResponseWhich;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
@@ -76,6 +76,8 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
 
 @RunWith(JUnitParamsRunner.class)
 @ContextConfiguration(classes = TestContextConfiguration.class)
@@ -96,9 +98,7 @@ public class RequestsApiTest extends ApiTests {
   public ResourceClient<RequestDto> requestClient;
 
   @Before
-  public void beforeEach()
-    throws MalformedURLException {
-
+  public void beforeEach() {
     StorageTestSuite.deleteAll(requestStorageUrl());
   }
 
@@ -108,12 +108,7 @@ public class RequestsApiTest extends ApiTests {
   }
 
   @Test
-  public void canCreateARequest()
-    throws InterruptedException,
-    MalformedURLException,
-    TimeoutException,
-    ExecutionException {
-
+  public void canCreateARequest() {
     UUID id = UUID.randomUUID();
     UUID itemId = UUID.randomUUID();
     UUID requesterId = UUID.randomUUID();
@@ -130,26 +125,23 @@ public class RequestsApiTest extends ApiTests {
       .addIdentifier(isbnIdentifierId, "978-92-8011-566-9")
       .addIdentifier(issnIdentifierId, "2193988");
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .toHoldShelf()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .withProxyId(proxyId)
-      .withRequestExpiration(requestExpirationDate)
-      .withHoldShelfExpiration(holdShelfExpirationDate)
-      .withItem(nod)
-      .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
-      .withProxy("Stuart", "Rebecca", "6059539205")
-      .withStatus(OPEN_NOT_YET_FILLED)
-      .withPosition(1)
-      .withPickupServicePointId(pickupServicePointId)
-      .withTags(new Tags().withTagList(asList("new", "important")))
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .recall()
+    .toHoldShelf()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .withProxyId(proxyId)
+    .withRequestExpiration(requestExpirationDate)
+    .withHoldShelfExpiration(holdShelfExpirationDate)
+    .withItem(nod)
+    .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
+    .withProxy("Stuart", "Rebecca", "6059539205")
+    .withStatus(OPEN_NOT_YET_FILLED)
+    .withPosition(1)
+    .withPickupServicePointId(pickupServicePointId)
+    .withTags(new Tags().withTagList(asList("new", "important")))).getJson();
 
     assertThat(representation.getString("id"), is(id.toString()));
     assertThat(representation.getString("requestType"), is("Recall"));
@@ -226,34 +218,22 @@ public class RequestsApiTest extends ApiTests {
     CLOSED_UNFILLED,
     CLOSED_PICKUP_EXPIRED
   })
-  public void canCreateARequestWithValidStatus(String status)
-    throws InterruptedException,
-    MalformedURLException,
-    TimeoutException,
-    ExecutionException {
-
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .toHoldShelf()
-      .withStatus(status)
-      .create(),
-      requestStorageUrl()).getJson();
+  public void canCreateARequestWithValidStatus(String status) {
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .recall()
+    .toHoldShelf()
+    .withStatus(status)).getJson();
 
     assertThat(representation.getString("status"), is(status));
   }
 
+  @SneakyThrows
   @Test
   @Parameters({
     "Non-existent status",
     ""
   })
-  public void cannotCreateARequestWithInvalidStatus(String status)
-    throws InterruptedException,
-    MalformedURLException,
-    TimeoutException,
-    ExecutionException {
-
+  public void cannotCreateARequestWithInvalidStatus(String status) {
     CompletableFuture<JsonResponse> createCompleted = new CompletableFuture<>();
 
     JsonObject requestRequest = new RequestRequestBuilder()
@@ -264,29 +244,22 @@ public class RequestsApiTest extends ApiTests {
       requestRequest, TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse response = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse response = createCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Should not create request: %s", response.getBody()),
+    assertThat(format("Should not create request: %s", response.getBody()),
       response.getStatusCode(), is(HttpURLConnection.HTTP_BAD_REQUEST));
   }
 
+  @SneakyThrows
   @Test
-  public void canCreateARequestToBeFulfilledByDeliveryToAnAddress()
-    throws InterruptedException,
-    MalformedURLException,
-    TimeoutException,
-    ExecutionException {
-
+  public void canCreateARequestToBeFulfilledByDeliveryToAnAddress() {
     UUID id = UUID.randomUUID();
     UUID deliveryAddressTypeId = UUID.randomUUID();
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .deliverToAddress(deliveryAddressTypeId)
-      .withId(id)
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .recall()
+    .deliverToAddress(deliveryAddressTypeId)
+    .withId(id)).getJson();
 
     assertThat(representation.getString("id"), is(id.toString()));
     assertThat(representation.getString("requestType"), is("Recall"));
@@ -296,12 +269,12 @@ public class RequestsApiTest extends ApiTests {
 
     CompletableFuture<JsonResponse> getCompleted = new CompletableFuture<>();
 
-    client.get(requestStorageUrl() + String.format("/%s", representation.getString("id")),
+    client.get(requestStorageUrl() + format("/%s", representation.getString("id")),
       TENANT_ID, ResponseHandler.json(getCompleted));
 
-    JsonResponse getResponse = getCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getResponse = getCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get request: %s", getResponse.getBody()),
+    assertThat(format("Failed to get request: %s", getResponse.getBody()),
       getResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
     JsonObject fetchedRepresentation = getResponse.getJson();
@@ -325,16 +298,13 @@ public class RequestsApiTest extends ApiTests {
     UUID requesterId = UUID.randomUUID();
     DateTime requestDate = new DateTime(2017, 7, 22, 10, 22, 54, DateTimeZone.UTC);
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .toHoldShelf()
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .recall()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .toHoldShelf()).getJson();
 
     assertThat(representation.getString("id"), is(id.toString()));
     assertThat(representation.getString("requestType"), is("Recall"));
@@ -355,11 +325,8 @@ public class RequestsApiTest extends ApiTests {
     TimeoutException,
     ExecutionException {
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .withPatronComments(PATRON_COMMENTS)
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .withPatronComments(PATRON_COMMENTS)).getJson();
 
     assertThat(representation.getString("patronComments"), is(PATRON_COMMENTS));
   }
@@ -381,9 +348,9 @@ public class RequestsApiTest extends ApiTests {
       new RequestRequestBuilder().create(), TENANT_ID,
       creatorId, ResponseHandler.json(createCompleted));
 
-    JsonResponse postResponse = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse postResponse = createCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to create request: %s", postResponse.getBody()),
+    assertThat(format("Failed to create request: %s", postResponse.getBody()),
       postResponse.getStatusCode(), is(HTTP_CREATED));
 
     JsonObject createdRequest = postResponse.getJson();
@@ -416,11 +383,8 @@ public class RequestsApiTest extends ApiTests {
     TimeoutException,
     ExecutionException {
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .withNoId()
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .withNoId()).getJson();
 
     assertThat(representation.getString("id"), is(notNullValue()));
   }
@@ -434,19 +398,13 @@ public class RequestsApiTest extends ApiTests {
 
     UUID itemId = UUID.randomUUID();
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withNoPosition()
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withNoPosition()).getJson();
 
-    JsonObject representation2 = createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withNoPosition()
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation2 = createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withNoPosition()).getJson();
 
     assertThat(representation.getString("id"), is(notNullValue()));
     assertThat(representation2.getString("id"), is(notNullValue()));
@@ -462,36 +420,24 @@ public class RequestsApiTest extends ApiTests {
     UUID firstItemId = UUID.randomUUID();
     UUID secondItemId = UUID.randomUUID();
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-      .withItemId(firstItemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+    .withItemId(firstItemId)
+    .withPosition(1)).getJson();
     assertThat(representation.getString("id"), is(notNullValue()));
 
-    JsonObject representation2 = createEntity(
-      new RequestRequestBuilder()
-      .withItemId(firstItemId)
-      .withPosition(2)
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation2 = createRequest(new RequestRequestBuilder()
+    .withItemId(firstItemId)
+    .withPosition(2)).getJson();
     assertThat(representation2.getString("id"), is(notNullValue()));
 
-    JsonObject representation3 = createEntity(
-      new RequestRequestBuilder()
-      .withItemId(secondItemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation3 = createRequest(new RequestRequestBuilder()
+    .withItemId(secondItemId)
+    .withPosition(1)).getJson();
     assertThat(representation3.getString("id"), is(notNullValue()));
 
-    JsonObject representation4 = createEntity(
-      new RequestRequestBuilder()
-      .withItemId(secondItemId)
-      .withPosition(2)
-      .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation4 = createRequest(new RequestRequestBuilder()
+    .withItemId(secondItemId)
+    .withPosition(2)).getJson();
     assertThat(representation4.getString("id"), is(notNullValue()));
   }
 
@@ -504,12 +450,9 @@ public class RequestsApiTest extends ApiTests {
 
     UUID itemId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1));
 
     CompletableFuture<JsonResponse> createCompleted = new CompletableFuture<>();
 
@@ -522,7 +465,7 @@ public class RequestsApiTest extends ApiTests {
       secondRequest, TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse response = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse response = createCompleted.get(5, SECONDS);
 
     assertThat(response, isValidationResponseWhich(hasMessage(
       "Cannot have more than one request with the same position in the queue")));
@@ -542,23 +485,17 @@ public class RequestsApiTest extends ApiTests {
       "Cancelled at patron’s request", "Use when patron wants to request cancelling")
       .getId());
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withNoPosition()
-      .withStatus(CLOSED_CANCELLED)
-      .withCancellationReasonId(cancellationReasonId)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withNoPosition()
+    .withStatus(CLOSED_CANCELLED)
+    .withCancellationReasonId(cancellationReasonId));
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withNoPosition()
-      .withStatus(CLOSED_CANCELLED)
-      .withCancellationReasonId(cancellationReasonId)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withNoPosition()
+    .withStatus(CLOSED_CANCELLED)
+    .withCancellationReasonId(cancellationReasonId));
   }
 
   //This should not happen, but shouldn't really fail either (maybe need to check)
@@ -571,21 +508,15 @@ public class RequestsApiTest extends ApiTests {
 
     UUID itemId = UUID.randomUUID();
 
-    JsonObject representation = createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withPosition(1)
-        .withStatus(OPEN_AWAITING_PICKUP)
-        .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation = createRequest(new RequestRequestBuilder()
+      .withItemId(itemId)
+      .withPosition(1)
+      .withStatus(OPEN_AWAITING_PICKUP)).getJson();
 
-    JsonObject representation2 = createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withNoPosition()
-        .withStatus(OPEN_NOT_YET_FILLED)
-        .create(),
-      requestStorageUrl()).getJson();
+    JsonObject representation2 = createRequest(new RequestRequestBuilder()
+      .withItemId(itemId)
+      .withNoPosition()
+      .withStatus(OPEN_NOT_YET_FILLED)).getJson();
 
     assertThat(representation.getString("id"), is(notNullValue()));
     assertThat(representation2.getString("id"), is(notNullValue()));
@@ -605,22 +536,19 @@ public class RequestsApiTest extends ApiTests {
     DateTime requestExpirationDate = new DateTime(2017, 7, 30, 0, 0, DateTimeZone.UTC);
     DateTime holdShelfExpirationDate = new DateTime(2017, 8, 31, 0, 0, DateTimeZone.UTC);
 
-    createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .toHoldShelf()
-      .withRequestExpiration(requestExpirationDate)
-      .withHoldShelfExpiration(holdShelfExpirationDate)
-      .withItem("Nod", "565578437802")
-      .withRequester("Smith", "Jessica", "721076398251")
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .recall()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .toHoldShelf()
+    .withRequestExpiration(requestExpirationDate)
+    .withHoldShelfExpiration(holdShelfExpirationDate)
+    .withItem("Nod", "565578437802")
+    .withRequester("Smith", "Jessica", "721076398251"));
 
-    JsonObject representation = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject representation = getById(requestStorageUrl(format("/%s", id)));
 
     assertThat(representation.getString("id"), is(id.toString()));
     assertThat(representation.getString("requestType"), is("Recall"));
@@ -652,12 +580,9 @@ public class RequestsApiTest extends ApiTests {
     UUID itemId = UUID.randomUUID();
     UUID secondRequestId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1));
 
     JsonObject secondRequest = new RequestRequestBuilder()
       .withId(secondRequestId)
@@ -667,11 +592,11 @@ public class RequestsApiTest extends ApiTests {
 
     CompletableFuture<JsonResponse> createCompleted = new CompletableFuture<>();
 
-    client.put(requestStorageUrl(String.format("/%s", secondRequestId)),
+    client.put(requestStorageUrl(format("/%s", secondRequestId)),
       secondRequest, TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse response = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse response = createCompleted.get(5, SECONDS);
 
     assertThat(response, isValidationResponseWhich(hasMessage(
       "Cannot have more than one request with the same position in the queue")));
@@ -691,21 +616,19 @@ public class RequestsApiTest extends ApiTests {
     DateTime requestExpirationDate = new DateTime(2017, 7, 30, 0, 0, DateTimeZone.UTC);
     DateTime holdShelfExpirationDate = new DateTime(2017, 8, 31, 0, 0, DateTimeZone.UTC);
 
-    createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .toHoldShelf()
-      .withItem("Nod", "565578437802")
-      .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
-      .withPosition(1)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .recall()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .toHoldShelf()
+    .withItem("Nod", "565578437802")
+    .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
+    .withPosition(1));
 
-    JsonObject getAfterCreateResponse = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject getAfterCreateResponse = getById(requestStorageUrl(
+      format("/%s", id)));
 
     CompletableFuture<TextResponse> updateCompleted = new CompletableFuture<>();
 
@@ -728,16 +651,16 @@ public class RequestsApiTest extends ApiTests {
       .put("requestExpirationDate", requestExpirationDate.toString(ISODateTimeFormat.dateTime()))
       .put("holdShelfExpirationDate", holdShelfExpirationDate.toString(ISODateTimeFormat.dateTime()));
 
-    client.put(requestStorageUrl(String.format("/%s", id)),
+    client.put(requestStorageUrl(format("/%s", id)),
       updateRequestRequest, TENANT_ID,
       ResponseHandler.text(updateCompleted));
 
-    TextResponse response = updateCompleted.get(5, TimeUnit.SECONDS);
+    TextResponse response = updateCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to update request: %s", response.getBody()),
+    assertThat(format("Failed to update request: %s", response.getBody()),
       response.getStatusCode(), is(HttpURLConnection.HTTP_NO_CONTENT));
 
-    JsonObject representation = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject representation = getById(requestStorageUrl(format("/%s", id)));
 
     assertThat(representation.getString("id"), is(id.toString()));
     assertThat(representation.getString("requestType"), is("Recall"));
@@ -797,21 +720,19 @@ public class RequestsApiTest extends ApiTests {
     UUID requesterId = UUID.randomUUID();
     DateTime requestDate = new DateTime(2017, 7, 22, 10, 22, 54, DateTimeZone.UTC);
 
-    createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .toHoldShelf()
-      .withItem("Nod", "565578437802")
-      .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
-      .withStatus("Open - Not yet filled")
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .recall()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .toHoldShelf()
+    .withItem("Nod", "565578437802")
+    .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
+    .withStatus("Open - Not yet filled"));
 
-    JsonObject getAfterCreateResponse = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject getAfterCreateResponse = getById(requestStorageUrl(
+      format("/%s", id)));
 
     CompletableFuture<TextResponse> updateCompleted = new CompletableFuture<>();
 
@@ -819,16 +740,16 @@ public class RequestsApiTest extends ApiTests {
       .copy()
       .put("status", status);
 
-    client.put(requestStorageUrl(String.format("/%s", id)),
+    client.put(requestStorageUrl(format("/%s", id)),
       updateRequestRequest, TENANT_ID,
       ResponseHandler.text(updateCompleted));
 
-    TextResponse response = updateCompleted.get(5, TimeUnit.SECONDS);
+    TextResponse response = updateCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to update request: %s", response.getBody()),
+    assertThat(format("Failed to update request: %s", response.getBody()),
       response.getStatusCode(), is(HttpURLConnection.HTTP_NO_CONTENT));
 
-    JsonObject representation = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject representation = getById(requestStorageUrl(format("/%s", id)));
 
     assertThat(representation.getString("status"), is(status));
   }
@@ -849,21 +770,19 @@ public class RequestsApiTest extends ApiTests {
     UUID requesterId = UUID.randomUUID();
     DateTime requestDate = new DateTime(2017, 7, 22, 10, 22, 54, DateTimeZone.UTC);
 
-    createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .toHoldShelf()
-      .withItem("Nod", "565578437802")
-      .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
-      .withStatus("Open - Not yet filled")
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .recall()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .toHoldShelf()
+    .withItem("Nod", "565578437802")
+    .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
+    .withStatus("Open - Not yet filled"));
 
-    JsonObject getAfterCreateResponse = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject getAfterCreateResponse = getById(requestStorageUrl(
+      format("/%s", id)));
 
     CompletableFuture<TextResponse> updateCompleted = new CompletableFuture<>();
 
@@ -871,16 +790,16 @@ public class RequestsApiTest extends ApiTests {
       .copy()
       .put("status", status);
 
-    client.put(requestStorageUrl(String.format("/%s", id)),
+    client.put(requestStorageUrl(format("/%s", id)),
       updateRequestRequest, TENANT_ID,
       ResponseHandler.text(updateCompleted));
 
-    TextResponse response = updateCompleted.get(5, TimeUnit.SECONDS);
+    TextResponse response = updateCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Should fail to update request: %s", response.getBody()),
+    assertThat(format("Should fail to update request: %s", response.getBody()),
       response.getStatusCode(), is(HttpURLConnection.HTTP_BAD_REQUEST));
 
-    JsonObject representation = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject representation = getById(requestStorageUrl(format("/%s", id)));
 
     assertThat(representation.getString("status"), is("Open - Not yet filled"));
   }
@@ -894,30 +813,24 @@ public class RequestsApiTest extends ApiTests {
 
     UUID itemId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1));
 
-    final IndividualResource secondRequest = createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withPosition(2)
-        .create(),
-      requestStorageUrl());
+    final IndividualResource secondRequest = createRequest(new RequestRequestBuilder()
+      .withItemId(itemId)
+      .withPosition(2));
 
     final JsonObject changedSecondRequest = secondRequest.getJson()
       .put("position", 1);
 
     CompletableFuture<JsonResponse> updateCompleted = new CompletableFuture<>();
 
-    client.put(requestStorageUrl(String.format("/%s", secondRequest.getId())),
+    client.put(requestStorageUrl(format("/%s", secondRequest.getId())),
       changedSecondRequest, TENANT_ID,
       ResponseHandler.json(updateCompleted));
 
-    JsonResponse response = updateCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse response = updateCompleted.get(5, SECONDS);
 
     assertThat(response, isValidationResponseWhich(hasMessage(
       "Cannot have more than one request with the same position in the queue")));
@@ -947,16 +860,16 @@ public class RequestsApiTest extends ApiTests {
 
     DateTime requestMade = DateTime.now();
 
-    client.put(requestStorageUrl(String.format("/%s", id)),
+    client.put(requestStorageUrl(format("/%s", id)),
       request, TENANT_ID, updaterId,
       ResponseHandler.text(updateCompleted));
 
-    TextResponse response = updateCompleted.get(5, TimeUnit.SECONDS);
+    TextResponse response = updateCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to update request: %s", response.getBody()),
+    assertThat(format("Failed to update request: %s", response.getBody()),
       response.getStatusCode(), is(HttpURLConnection.HTTP_NO_CONTENT));
 
-    JsonObject updatedRequest = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject updatedRequest = getById(requestStorageUrl(format("/%s", id)));
 
     assertThat("Request should have metadata property",
       updatedRequest.containsKey(METADATA_PROPERTY), is(true));
@@ -996,23 +909,20 @@ public class RequestsApiTest extends ApiTests {
     DateTime requestExpirationDate = new DateTime(2017, 7, 30, 0, 0, DateTimeZone.UTC);
     DateTime holdShelfExpirationDate = new DateTime(2017, 8, 31, 0, 0, DateTimeZone.UTC);
 
-    createEntity(
-      new RequestRequestBuilder()
-      .recall()
-      .withId(id)
-      .withRequestDate(requestDate)
-      .withItemId(itemId)
-      .withRequesterId(requesterId)
-      .toHoldShelf()
-      .withRequestExpiration(requestExpirationDate)
-      .withHoldShelfExpiration(holdShelfExpirationDate)
-      .withItem("Nod", "565578437802")
-      .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
-      .withPosition(3)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .recall()
+    .withId(id)
+    .withRequestDate(requestDate)
+    .withItemId(itemId)
+    .withRequesterId(requesterId)
+    .toHoldShelf()
+    .withRequestExpiration(requestExpirationDate)
+    .withHoldShelfExpiration(holdShelfExpirationDate)
+    .withItem("Nod", "565578437802")
+    .withRequester("Jones", "Stuart", "Anthony", "6837502674015")
+    .withPosition(3));
 
-    JsonObject representation = getById(requestStorageUrl(String.format("/%s", id)));
+    JsonObject representation = getById(requestStorageUrl(format("/%s", id)));
 
     assertThat(representation.getString("id"), is(id.toString()));
     assertThat(representation.getString("requestType"), is("Recall"));
@@ -1042,7 +952,7 @@ public class RequestsApiTest extends ApiTests {
     ExecutionException,
     TimeoutException {
 
-    checkNotFound(requestStorageUrl(String.format("/%s", UUID.randomUUID())));
+    checkNotFound(requestStorageUrl(format("/%s", UUID.randomUUID())));
 
   }
 
@@ -1053,13 +963,13 @@ public class RequestsApiTest extends ApiTests {
     TimeoutException,
     ExecutionException {
 
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().create(), requestStorageUrl());
+    createRequest(new RequestRequestBuilder());
+    createRequest(new RequestRequestBuilder());
+    createRequest(new RequestRequestBuilder());
+    createRequest(new RequestRequestBuilder());
+    createRequest(new RequestRequestBuilder());
+    createRequest(new RequestRequestBuilder());
+    createRequest(new RequestRequestBuilder());
 
     CompletableFuture<JsonResponse> firstPageCompleted = new CompletableFuture<>();
     CompletableFuture<JsonResponse> secondPageCompleted = new CompletableFuture<>();
@@ -1070,14 +980,14 @@ public class RequestsApiTest extends ApiTests {
     client.get(requestStorageUrl() + "?limit=4&offset=4", TENANT_ID,
       ResponseHandler.json(secondPageCompleted));
 
-    JsonResponse firstPageResponse = firstPageCompleted.get(5, TimeUnit.SECONDS);
-    JsonResponse secondPageResponse = secondPageCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse firstPageResponse = firstPageCompleted.get(5, SECONDS);
+    JsonResponse secondPageResponse = secondPageCompleted.get(5, SECONDS);
 
-    MatcherAssert.assertThat(String.format("Failed to get first page of requests: %s",
+    MatcherAssert.assertThat(format("Failed to get first page of requests: %s",
       firstPageResponse.getBody()),
       firstPageResponse.getStatusCode(), is(200));
 
-    assertThat(String.format("Failed to get second page of requests: %s",
+    assertThat(format("Failed to get second page of requests: %s",
       secondPageResponse.getBody()),
       secondPageResponse.getStatusCode(), is(200));
 
@@ -1104,22 +1014,22 @@ public class RequestsApiTest extends ApiTests {
     UUID firstRequester = UUID.randomUUID();
     UUID secondRequester = UUID.randomUUID();
 
-    createEntity(new RequestRequestBuilder().withRequesterId(firstRequester).create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().withRequesterId(firstRequester).create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().withRequesterId(secondRequester).create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().withRequesterId(firstRequester).create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().withRequesterId(firstRequester).create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().withRequesterId(secondRequester).create(), requestStorageUrl());
-    createEntity(new RequestRequestBuilder().withRequesterId(secondRequester).create(), requestStorageUrl());
+    createRequest(new RequestRequestBuilder().withRequesterId(firstRequester));
+    createRequest(new RequestRequestBuilder().withRequesterId(firstRequester));
+    createRequest(new RequestRequestBuilder().withRequesterId(secondRequester));
+    createRequest(new RequestRequestBuilder().withRequesterId(firstRequester));
+    createRequest(new RequestRequestBuilder().withRequesterId(firstRequester));
+    createRequest(new RequestRequestBuilder().withRequesterId(secondRequester));
+    createRequest(new RequestRequestBuilder().withRequesterId(secondRequester));
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
-    client.get(requestStorageUrl() + String.format("?query=requesterId=%s", secondRequester),
+    client.get(requestStorageUrl() + format("?query=requesterId=%s", secondRequester),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1147,9 +1057,9 @@ public class RequestsApiTest extends ApiTests {
       j1, TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse postResponse = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse postResponse = createCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to create request: %s", postResponse.getBody()),
+    assertThat(format("Failed to create request: %s", postResponse.getBody()),
       postResponse.getStatusCode(), is(422));
   }
 
@@ -1176,9 +1086,9 @@ public class RequestsApiTest extends ApiTests {
       j1, TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse putResponse = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse putResponse = createCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to create request: %s", putResponse.getBody()),
+    assertThat(format("Failed to create request: %s", putResponse.getBody()),
       putResponse.getStatusCode(), is(422));
   }
 
@@ -1209,12 +1119,12 @@ public class RequestsApiTest extends ApiTests {
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
-    client.get(requestStorageUrl() + String.format("?query=proxyUserId=%s", userProxy1),
+    client.get(requestStorageUrl() + format("?query=proxyUserId=%s", userProxy1),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1225,13 +1135,13 @@ public class RequestsApiTest extends ApiTests {
 
     CompletableFuture<JsonResponse> getRequestsCompleted2 = new CompletableFuture<>();
 
-    String query = String.format("proxyUserId<>%s", UUID.randomUUID().toString());
+    String query = format("proxyUserId<>%s", UUID.randomUUID().toString());
     client.get(requestStorageUrl() + "?query=" + URLEncoder.encode(query, UTF_8),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted2));
 
-    JsonResponse getRequestsResponse2 = getRequestsCompleted2.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse2 = getRequestsCompleted2.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse2.getBody()),
       getRequestsResponse2.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1243,43 +1153,33 @@ public class RequestsApiTest extends ApiTests {
 
   @Test
   public void canSearchForRequestsForAnItem()
-    throws MalformedURLException,
-    InterruptedException,
+    throws InterruptedException,
     ExecutionException,
     TimeoutException {
 
     UUID itemId = UUID.randomUUID();
     UUID otherItemId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1));
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(2)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(2));
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withPosition(1));
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
-    client.get(requestStorageUrl() + String.format("?query=itemId==%s", itemId),
+    client.get(requestStorageUrl() + format("?query=itemId==%s", itemId),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1290,85 +1190,95 @@ public class RequestsApiTest extends ApiTests {
   }
 
   @Test
+  @SneakyThrows
+  public void canSortRequestsByRequesterBarcode() {
+    final java.util.function.Function<String, IndividualResource> makeRequest = (String requesterBarcode) ->
+      createRequest(new RequestRequestBuilder()
+        .withRequester("Smith", "Jane", requesterBarcode));
+
+    makeRequest.apply(null);
+    makeRequest.apply("101");
+    makeRequest.apply("100");
+    makeRequest.apply(null);
+    makeRequest.apply("102");
+
+    final var sortedRequests = sortRequests("cql.allRecords=1 sortBy requester.barcode/sort.descending requestDate");
+
+    final var sortedRequesterBarcodes = sortedRequests.stream()
+      .map(Request::requesterBarcode)
+      .collect(Collectors.toList());
+
+    assertThat(sortedRequesterBarcodes, contains(
+      null,
+      null,
+      "102",
+      "101",
+      "100"));
+  }
+
+  @Test
   public void canSearchForActiveRequestsForAnItem()
-    throws MalformedURLException,
-    InterruptedException,
+    throws InterruptedException,
     ExecutionException,
     TimeoutException, UnsupportedEncodingException {
 
     UUID itemId = UUID.randomUUID();
     UUID otherItemId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1)
+    .withStatus(OPEN_NOT_YET_FILLED));
+
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(2)
+    .withStatus(OPEN_AWAITING_PICKUP));
+
+    createRequest(new RequestRequestBuilder()
       .withItemId(itemId)
-      .withPosition(1)
-      .withStatus(OPEN_NOT_YET_FILLED).create(),
-      requestStorageUrl());
+      .withPosition(3)
+      .withStatus(OPEN_AWAITING_DELIVERY));
 
-    createEntity(
-      new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withNoPosition()
+    .withStatus(CLOSED_FILLED));
+
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withPosition(1)
+    .withStatus(OPEN_NOT_YET_FILLED));
+
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withPosition(2)
+    .withStatus(OPEN_AWAITING_PICKUP));
+
+    createRequest(new RequestRequestBuilder()
       .withItemId(itemId)
-      .withPosition(2)
-      .withStatus(OPEN_AWAITING_PICKUP).create(),
-      requestStorageUrl());
+      .withPosition(4)
+      .withStatus(OPEN_IN_TRANSIT));
 
-    createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withPosition(3)
-        .withStatus(OPEN_AWAITING_DELIVERY).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withNoPosition()
-      .withStatus(CLOSED_FILLED).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withPosition(1)
-      .withStatus(OPEN_NOT_YET_FILLED).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withPosition(2)
-      .withStatus(OPEN_AWAITING_PICKUP).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withPosition(4)
-        .withStatus(OPEN_IN_TRANSIT).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withNoPosition()
-      .withStatus(CLOSED_FILLED).create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withNoPosition()
+    .withStatus(CLOSED_FILLED));
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
-    String query = URLEncoder.encode(String.format("itemId==%s and status==(\"%s\" or \"%s\" or \"%s\" or \"%s\")",
+    String query = URLEncoder.encode(format("itemId==%s and status==(\"%s\" or \"%s\" or \"%s\" or \"%s\")",
       itemId,
       OPEN_NOT_YET_FILLED, OPEN_AWAITING_PICKUP,
       OPEN_IN_TRANSIT, OPEN_AWAITING_DELIVERY),
       "UTF-8");
 
-    client.get(requestStorageUrl() + String.format("?query=%s", query),
+    client.get(requestStorageUrl() + format("?query=%s", query),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1388,72 +1298,56 @@ public class RequestsApiTest extends ApiTests {
     UUID itemId = UUID.randomUUID();
     UUID otherItemId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1)
+    .withStatus(OPEN_NOT_YET_FILLED));
+
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(2)
+    .withStatus(OPEN_AWAITING_PICKUP));
+
+    createRequest(new RequestRequestBuilder()
       .withItemId(itemId)
-      .withPosition(1)
-      .withStatus(OPEN_NOT_YET_FILLED).create(),
-      requestStorageUrl());
+      .withPosition(3)
+      .withStatus(OPEN_AWAITING_DELIVERY));
 
-    createEntity(
-      new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withNoPosition()
+    .withStatus(CLOSED_FILLED));
+
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withPosition(1)
+    .withStatus(OPEN_NOT_YET_FILLED));
+
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withPosition(2)
+    .withStatus(OPEN_AWAITING_PICKUP));
+
+    createRequest(new RequestRequestBuilder()
       .withItemId(itemId)
-      .withPosition(2)
-      .withStatus(OPEN_AWAITING_PICKUP).create(),
-      requestStorageUrl());
+      .withPosition(4)
+      .withStatus(OPEN_IN_TRANSIT));
 
-    createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withPosition(3)
-        .withStatus(OPEN_AWAITING_DELIVERY).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withNoPosition()
-      .withStatus(CLOSED_FILLED).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withPosition(1)
-      .withStatus(OPEN_NOT_YET_FILLED).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withPosition(2)
-      .withStatus(OPEN_AWAITING_PICKUP).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-        .withItemId(itemId)
-        .withPosition(4)
-        .withStatus(OPEN_IN_TRANSIT).create(),
-      requestStorageUrl());
-
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(otherItemId)
-      .withNoPosition()
-      .withStatus(CLOSED_FILLED).create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder()
+    .withItemId(otherItemId)
+    .withNoPosition()
+    .withStatus(CLOSED_FILLED));
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
-    String query = URLEncoder.encode(String.format("status=\"%s\"", OPEN_NOT_YET_FILLED), "UTF-8");
+    String query = URLEncoder.encode(format("status=\"%s\"", OPEN_NOT_YET_FILLED), "UTF-8");
 
-    client.get(requestStorageUrl() + String.format("?query=%s", query),
+    client.get(requestStorageUrl() + format("?query=%s", query),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1465,57 +1359,44 @@ public class RequestsApiTest extends ApiTests {
 
   @Test
   public void canSortRequestsByAscendingRequestDate()
-    throws MalformedURLException,
-    InterruptedException,
+    throws InterruptedException,
     ExecutionException,
     TimeoutException, UnsupportedEncodingException {
 
     UUID itemId = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withRequestDate(new DateTime(2018, 2, 14, 15, 10, 54, DateTimeZone.UTC))
-      .withPosition(1)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withRequestDate(new DateTime(2018, 2, 14, 15, 10, 54, DateTimeZone.UTC))
+    .withPosition(1)).getId();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withRequestDate(new DateTime(2017, 11, 24, 12, 31, 27, DateTimeZone.UTC))
-      .withPosition(2)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withRequestDate(new DateTime(2017, 11, 24, 12, 31, 27, DateTimeZone.UTC))
+    .withPosition(2)).getId();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withRequestDate(new DateTime(2018, 2, 4, 15, 10, 54, DateTimeZone.UTC))
-      .withPosition(3)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withRequestDate(new DateTime(2018, 2, 4, 15, 10, 54, DateTimeZone.UTC))
+    .withPosition(3)).getId();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withRequestDate(new DateTime(2018, 1, 12, 12, 31, 27, DateTimeZone.UTC))
-      .withPosition(4)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withRequestDate(new DateTime(2018, 1, 12, 12, 31, 27, DateTimeZone.UTC))
+    .withPosition(4)).getId();
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
     String query = URLEncoder.encode(
-      String.format("itemId==%s sortBy requestDate/sort.ascending", itemId),
+      format("itemId==%s sortBy requestDate/sort.ascending", itemId),
       "UTF-8");
 
-    client.get(requestStorageUrl() + String.format("?query=%s", query),
+    client.get(requestStorageUrl() + format("?query=%s", query),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1550,46 +1431,34 @@ public class RequestsApiTest extends ApiTests {
 
     //Deliberately create requests out of order to demonstrate sorting,
     // should not happen under normal circumstances
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(2)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(2)).getId();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(1)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(1)).getId();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(4)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(4)).getId();
 
-    createEntity(
-      new RequestRequestBuilder()
-      .withItemId(itemId)
-      .withPosition(3)
-      .create(),
-      requestStorageUrl()).getId();
+    createRequest(new RequestRequestBuilder()
+    .withItemId(itemId)
+    .withPosition(3)).getId();
 
     CompletableFuture<JsonResponse> getRequestsCompleted = new CompletableFuture<>();
 
     String query = URLEncoder.encode(
-      String.format("itemId==%s sortBy position/sort.ascending", itemId),
+      format("itemId==%s sortBy position/sort.ascending", itemId),
       "UTF-8");
 
-    client.get(requestStorageUrl() + String.format("?query=%s", query),
+    client.get(requestStorageUrl() + format("?query=%s", query),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
-    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to get requests: %s",
+    assertThat(format("Failed to get requests: %s",
       getRequestsResponse.getBody()),
       getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
 
@@ -1619,20 +1488,18 @@ public class RequestsApiTest extends ApiTests {
 
     UUID id = UUID.randomUUID();
 
-    createEntity(
-      new RequestRequestBuilder().withId(id).create(),
-      requestStorageUrl());
+    createRequest(new RequestRequestBuilder().withId(id));
 
-    client.delete(requestStorageUrl(String.format("/%s", id)),
+    client.delete(requestStorageUrl(format("/%s", id)),
       TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse createResponse = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse createResponse = createCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to delete request: %s", createResponse.getBody()),
+    assertThat(format("Failed to delete request: %s", createResponse.getBody()),
       createResponse.getStatusCode(), is(HttpURLConnection.HTTP_NO_CONTENT));
 
-    checkNotFound(requestStorageUrl(String.format("/%s", id)));
+    checkNotFound(requestStorageUrl(format("/%s", id)));
   }
 
   @Test
@@ -1649,7 +1516,7 @@ public class RequestsApiTest extends ApiTests {
     DateTime requestUpdatedDate = DateTime.now();
     CompletableFuture<Response> putCompleted = new CompletableFuture<>();
     client.put(requestStorageUrl("/" + requestId), request, TENANT_ID, ResponseHandler.empty(putCompleted));
-    putCompleted.get(5, TimeUnit.SECONDS);
+    putCompleted.get(5, SECONDS);
 
     JsonObject updatedRequest = getById(requestStorageUrl("/" + requestId));
 
@@ -1672,7 +1539,7 @@ public class RequestsApiTest extends ApiTests {
     DateTime requestUpdatedDate = DateTime.now();
     CompletableFuture<Response> putCompleted = new CompletableFuture<>();
     client.put(requestStorageUrl("/" + requestId), request, TENANT_ID, ResponseHandler.empty(putCompleted));
-    putCompleted.get(5, TimeUnit.SECONDS);
+    putCompleted.get(5, SECONDS);
 
     JsonObject updatedRequest = getById(requestStorageUrl("/" + requestId));
 
@@ -1694,7 +1561,7 @@ public class RequestsApiTest extends ApiTests {
 
     CompletableFuture<Response> putCompleted = new CompletableFuture<>();
     client.put(requestStorageUrl("/" + requestId), request, TENANT_ID, ResponseHandler.empty(putCompleted));
-    putCompleted.get(5, TimeUnit.SECONDS);
+    putCompleted.get(5, SECONDS);
 
     JsonObject updatedRequest = getById(requestStorageUrl("/" + requestId));
 
@@ -1723,29 +1590,23 @@ public class RequestsApiTest extends ApiTests {
 
     final RequestItemSummary temeraire = new RequestItemSummary("Temeraire", "565578437804");
 
-    createEntity(new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
         .withId(nodRequestId)
         .recall()
         .toHoldShelf()
-        .withItem(nod)
-        .create(),
-      requestStorageUrl());
+        .withItem(nod));
 
-    createEntity(new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
         .withId(smallAngryPlanetRequestId)
         .recall()
         .toHoldShelf()
-        .withItem(smallAngryPlanet)
-        .create(),
-      requestStorageUrl());
+        .withItem(smallAngryPlanet));
 
-    createEntity(new RequestRequestBuilder()
+    createRequest(new RequestRequestBuilder()
         .withId(UUID.randomUUID())
         .recall()
         .toHoldShelf()
-        .withItem(temeraire)
-        .create(),
-      requestStorageUrl());
+        .withItem(temeraire));
 
     List<JsonObject> isbnRequests = findRequestsByQuery(
       "item.identifiers = %s and item.identifiers = %s", isbnIdentifierId, isbn);
@@ -1826,15 +1687,8 @@ public class RequestsApiTest extends ApiTests {
       .pickupServicePointId(UUID.randomUUID().toString());
   }
 
-  private IndividualResource createCancellationReason(
-    String name,
-    String description)
-
-    throws MalformedURLException,
-    InterruptedException,
-    ExecutionException,
-    TimeoutException {
-
+  @SneakyThrows
+  private IndividualResource createCancellationReason(String name, String description) {
     final JsonObject body = new JsonObject();
 
     body.put("name", name);
@@ -1845,9 +1699,9 @@ public class RequestsApiTest extends ApiTests {
     client.post(cancelReasonURL(), body, TENANT_ID,
       ResponseHandler.json(createCompleted));
 
-    JsonResponse postResponse = createCompleted.get(5, TimeUnit.SECONDS);
+    JsonResponse postResponse = createCompleted.get(5, SECONDS);
 
-    assertThat(String.format("Failed to create cancellation reason: %s",
+    assertThat(format("Failed to create cancellation reason: %s",
       postResponse.getBody()), postResponse.getStatusCode(), is(HTTP_CREATED));
 
     return new IndividualResource(postResponse);
@@ -1856,7 +1710,7 @@ public class RequestsApiTest extends ApiTests {
   private List<JsonObject> findRequestsByQuery(String query, Object... params)
     throws MalformedURLException, InterruptedException, ExecutionException, TimeoutException {
 
-    final String fullQuery = StringUtil.urlEncode(String.format(query, params));
+    final String fullQuery = StringUtil.urlEncode(format(query, params));
     final CompletableFuture<JsonResponse> getCompleted = new CompletableFuture<>();
 
     client.get(requestStorageUrl("?query=" + fullQuery), TENANT_ID,
@@ -1867,10 +1721,11 @@ public class RequestsApiTest extends ApiTests {
         .stream()
         .map(request -> (JsonObject) request)
         .collect(Collectors.toList()))
-      .get(5, TimeUnit.SECONDS);
+      .get(5, SECONDS);
   }
 
-  static URL requestStorageUrl() throws MalformedURLException {
+  @SneakyThrows
+  static URL requestStorageUrl() {
     return requestStorageUrl("");
   }
 
@@ -1890,5 +1745,59 @@ public class RequestsApiTest extends ApiTests {
 
     return StorageTestSuite.storageUrl(
       CANCEL_REASON_URL + subPath);
+  }
+
+  private IndividualResource createRequest(RequestRequestBuilder requestBuilder) {
+    return createEntity(requestBuilder
+        .create(),
+      requestStorageUrl());
+  }
+
+  @SneakyThrows
+  private List<Request> sortRequests(String cqlQuery) {
+    final var getRequestsCompleted = new CompletableFuture<JsonResponse>();
+
+    String query = URLEncoder.encode(cqlQuery, UTF_8);
+
+    client.get(requestStorageUrl() + format("?query=%s", query),
+      TENANT_ID, ResponseHandler.json(getRequestsCompleted));
+
+    final var getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
+
+    assertThat(format("Failed to get requests: %s", getRequestsResponse.getBody()),
+      getRequestsResponse.getStatusCode(), is(HttpURLConnection.HTTP_OK));
+
+    JsonObject wrappedRequests = getRequestsResponse.getJson();
+
+    return JsonArrayHelper
+      .toList(wrappedRequests.getJsonArray("requests"))
+      .stream()
+      .map(this::requestFromJson)
+      .collect(Collectors.toList());
+  }
+
+  private Request requestFromJson(JsonObject json) {
+    return new Request(getNestedStringProperty(json, "requester", "barcode"));
+  }
+
+  public static String getNestedStringProperty(JsonObject representation,
+    String objectName, String propertyName) {
+
+    if (representation == null) {
+      return null;
+    }
+
+    return representation.containsKey(objectName)
+      ? representation.getJsonObject(objectName).getString(propertyName)
+      : null;
+  }
+
+  @AllArgsConstructor
+  private static class Request {
+    private final String requesterBarcode;
+
+    public String requesterBarcode() {
+      return requesterBarcode;
+    }
   }
 }

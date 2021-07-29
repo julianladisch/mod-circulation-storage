@@ -49,11 +49,8 @@ public class ApiTests {
     }
   }
 
-  protected IndividualResource createEntity(JsonObject entity, URL url)
-    throws InterruptedException,
-    ExecutionException,
-    TimeoutException {
-
+  @SneakyThrows
+  protected IndividualResource createEntity(JsonObject entity, URL url) {
     CompletableFuture<JsonResponse> createCompleted = new CompletableFuture<>();
 
     client.post(url,
