@@ -1195,6 +1195,7 @@ public class RequestsApiTest extends ApiTests {
     final java.util.function.BiFunction<String, String, IndividualResource> makeRequest = (String requesterBarcode, String requestDate) ->
       createRequest(new RequestRequestBuilder()
         .withRequester("Smith", "Jane", requesterBarcode)
+        .withStatus("Closed - Cancelled")
         .withRequestDate(DateTime.parse(requestDate)));
 
     makeRequest.apply(null, "2020-06-22T20:03:29.000+00:00");
@@ -1210,7 +1211,8 @@ public class RequestsApiTest extends ApiTests {
     makeRequest.apply(null, "2020-08-24T16:22:17.000+00:00");
     makeRequest.apply(null, "2020-09-16T18:54:37.000+00:00");
 
-    final var sortedRequests = sortRequests("cql.allRecords=1 sortBy requester.barcode/sort.descending requestDate");
+    final var sortedRequests = sortRequests(
+      "status==\"Closed - Cancelled\" sortBy requester.barcode/sort.descending requestDate");
 
     final var sortedRequesterBarcodes = sortedRequests.stream()
       .map(Request::requesterBarcode)
@@ -1774,7 +1776,7 @@ public class RequestsApiTest extends ApiTests {
 
     String query = URLEncoder.encode(cqlQuery, UTF_8);
 
-    client.get(requestStorageUrl() + format("?limit=1000&query=%s", query),
+    client.get(requestStorageUrl() + format("?limit=100&query=%s", query),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
     final var getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
