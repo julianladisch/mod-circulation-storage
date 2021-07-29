@@ -1192,15 +1192,23 @@ public class RequestsApiTest extends ApiTests {
   @Test
   @SneakyThrows
   public void canSortRequestsByRequesterBarcode() {
-    final java.util.function.Function<String, IndividualResource> makeRequest = (String requesterBarcode) ->
+    final java.util.function.BiFunction<String, String, IndividualResource> makeRequest = (String requesterBarcode, String requestDate) ->
       createRequest(new RequestRequestBuilder()
-        .withRequester("Smith", "Jane", requesterBarcode));
+        .withRequester("Smith", "Jane", requesterBarcode)
+        .withRequestDate(DateTime.parse(requestDate)));
 
-    makeRequest.apply(null);
-    makeRequest.apply("101");
-    makeRequest.apply("100");
-    makeRequest.apply(null);
-    makeRequest.apply("102");
+    makeRequest.apply(null, "2020-06-22T20:03:29.000+00:00");
+    makeRequest.apply(null, "2020-06-23T11:24:41.000+00:00");
+    makeRequest.apply(null, "2020-06-24T08:58:49.000+00:00");
+    makeRequest.apply(null, "2020-06-25T10:47:32.000+00:00");
+    makeRequest.apply(null, "2020-06-25T10:51:34.000+00:00");
+    makeRequest.apply(null, "2020-07-14T14:43:55.000+00:00");
+    makeRequest.apply(null, "2020-07-14T15:49:07.000+00:00");
+    makeRequest.apply(null, "2020-07-14T15:59:45.000+00:00");
+    makeRequest.apply(null, "2020-07-14T16:16:43.000+00:00");
+    makeRequest.apply("1111145", "2020-08-24T16:19:43.000+00:00");
+    makeRequest.apply(null, "2020-08-24T16:22:17.000+00:00");
+    makeRequest.apply(null, "2020-09-16T18:54:37.000+00:00");
 
     final var sortedRequests = sortRequests("cql.allRecords=1 sortBy requester.barcode/sort.descending requestDate");
 
@@ -1211,9 +1219,16 @@ public class RequestsApiTest extends ApiTests {
     assertThat(sortedRequesterBarcodes, contains(
       null,
       null,
-      "102",
-      "101",
-      "100"));
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "1111145"));
   }
 
   @Test
@@ -1759,7 +1774,7 @@ public class RequestsApiTest extends ApiTests {
 
     String query = URLEncoder.encode(cqlQuery, UTF_8);
 
-    client.get(requestStorageUrl() + format("?query=%s", query),
+    client.get(requestStorageUrl() + format("?limit=1000&query=%s", query),
       TENANT_ID, ResponseHandler.json(getRequestsCompleted));
 
     final var getRequestsResponse = getRequestsCompleted.get(5, SECONDS);
