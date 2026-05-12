@@ -92,6 +92,7 @@ public class StorageTestSuite {
   public static final String TENANT_ID = "test_tenant";
 
   private static Vertx vertx;
+  private static String restVerticleId;
   public static final int PROXY_PORT = NetworkUtils.nextFreePort();
   public static final int OKAPI_MOCK_PORT = NetworkUtils.nextFreePort();
   private static boolean initialised = false;
@@ -194,6 +195,12 @@ public class StorageTestSuite {
       removeTenant(TENANT_ID);
     } catch (Throwable e) {
       log.warn("after:: removeTenant failed (ignored): {}", e.getMessage());
+    }
+
+    try {
+      stopVerticle();
+    } catch (Throwable e) {
+      log.warn("after:: stopVerticle failed (ignored): {}", e.getMessage());
     }
 
     try {
@@ -309,7 +316,12 @@ public class StorageTestSuite {
       .onSuccess(deploymentComplete::complete)
       .onFailure(deploymentComplete::completeExceptionally);
 
-    deploymentComplete.get(30, TimeUnit.SECONDS);
+    restVerticleId = deploymentComplete.get(30, TimeUnit.SECONDS);
+  }
+
+  private static void stopVerticle() throws InterruptedException, ExecutionException, TimeoutException {
+    vertx.undeploy(restVerticleId)
+    .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
   }
 
   static protected void prepareTenant(String tenantId, boolean loadSample) {
