@@ -61,8 +61,6 @@ public class TenantRefAPI extends TenantAPI {
         .add("request-policy-storage/request-policies")
         .add("patron-notice-policy-storage/patron-notice-policies")
         .add("staff-slips-storage/staff-slips")
-        .withIdRaw()
-        .add("circulation-rules-storage")
         .withIdContent()
         .add("cancellation-reason-storage/cancellation-reasons");
     }
